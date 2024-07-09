@@ -1,17 +1,10 @@
-import warnings
 import itertools
 import numpy as np
+from matplotlib import cm
 import matplotlib.pyplot as plt
 
-import matplotlib
-import os
-from matplotlib import cm
 from scipy.interpolate import griddata
-import config
-from config import Domain
 
-
-# matplotlib.use('Qt5Agg')
 
 class SparseGrid:
     def __init__(self, domain, max_level, dim):
@@ -31,14 +24,11 @@ class SparseGrid:
         self.domain = domain
         self.max_level = max_level
 
-        self.N = []
-
+        self.N = []                     # Number of basis functions
         self.hyperCross = []            # Hyperbolic Cross
         self.sparseGrid = []            # Corresponding Sparse Grid
 
-        # self.build_sparse_grid()
-
-    def build_sparse_grid(self):
+    def build(self):
         """
         Builds a hyperbolic cross defined in [1]. First builds the hyperbolic
         cross (2.1) and then builds the corresponding sparse grid (2.3) used
@@ -48,9 +38,9 @@ class SparseGrid:
             CROSS FAST FOURIER TRANSFORM", 2010.
         """
 
-        # Compute translation and scaling relative to [0,1]^d
-        translation = self.domain[0, 0]
-        scaling = self.domain[0, 1] - self.domain[0, 0]
+        # Compute translation and scaling
+        translation = self.domain[0]
+        scaling = self.domain[1] - self.domain[0]
 
         # Define constants
         n = 2**(self.max_level-1)
@@ -69,10 +59,10 @@ class SparseGrid:
         self.N = self.hyperCross.shape[0]
 
         # Builds the corresponding sparse grid for interpolation over hypercross
-        nLevel = [np.linspace(0, k, k+1) for _ in range(self.dim)]
+        nLevel = [np.linspace(0, self.max_level, self.max_level+1) for _ in range(self.dim)]
         fullGridLevels = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
         level_sums = np.sum(fullGridLevels, axis=1)
-        sparseGridLevels = (fullGridLevels[level_sums <= np.max(k)])
+        sparseGridLevels = (fullGridLevels[level_sums <= np.max(self.max_level)])
         sparseGridLevels = sparseGridLevels[np.argsort(sparseGridLevels.sum(axis=1)),:]
 
         # Initialize sparse interpolation grid
@@ -88,9 +78,9 @@ class SparseGrid:
 
         self.sparseGrid = np.unique(pts[1:, :], axis=0)
 
-    def fit_sparse_grid(self, f):
+    def fit(self, f):
         """
-        Fits sparse grid to given function using the sparse grid interpolation
+        Fits sparse grid to given function using the lienar sparse grid interpolation
         scheme.
         
         :param      f:    function to fit
@@ -199,8 +189,8 @@ class SparseGrid:
         spgrid1D = SparseGrid(config.get_inner_product_domain())
 
         M = 100
-        nLevel = [np.linspace(self.domain[dims[0], 0], self.domain[dims[0], 1], M),
-                  np.linspace(self.domain[dims[1], 0], self.domain[dims[1], 1], M)]
+        nLevel = [np.linspace(self.domain[0], self.domain[1], M),
+                  np.linspace(self.domain[0], self.domain[1], M)]
         coordinates = np.array(np.meshgrid(*nLevel)).T.reshape(-1, 2)
 
         interp = np.zeros((coordinates.shape[0],))
@@ -214,8 +204,8 @@ class SparseGrid:
 
         interp /= spgrid1D.sparseGrid.shape[0]
 
-        xq, yq = np.meshgrid(np.arange(self.domain[dims[0], 0], self.domain[dims[0], 1], 0.01),
-                             np.arange(self.domain[dims[1], 0], self.domain[dims[1], 1], 0.01))
+        xq, yq = np.meshgrid(np.arange(self.domain[0], self.domain[1], 0.01),
+                             np.arange(self.domain[0], self.domain[1], 0.01))
 
         zq = griddata(coordinates[:,dims], interp, (xq, yq))
         fig = plt.figure(figsize =(14, 14))
