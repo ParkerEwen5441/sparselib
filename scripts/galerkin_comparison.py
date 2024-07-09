@@ -44,11 +44,11 @@ def uniform_sparse(x):
     return np.sqrt(np.ones_like(x[:,0]) * 1 / (2 * np.pi))
 
 def ground_truth(t, x):
-	return np.power(np.exp(2*time) * np.power(np.sin(x), 2) + \
-                      np.exp(-2*time) * np.power(np.cos(x), 2), -1)
+	return np.power(np.exp(2*t) * np.power(np.sin(x), 2) + \
+                      np.exp(-2*t) * np.power(np.cos(x), 2), -1)
 
 def normalize(ys, N):
-	return np.squeeze(ys / np.sum(ys) / N)
+	return np.squeeze(ys / (2 * np.pi * np.sum(ys) / N))
 
 
 class SolverParamsDense():
@@ -71,11 +71,11 @@ paramsSparse = SolverParamsSparse()
 
 # Standard Galerkin method
 specgalDense = sparselib.SpectralGalerkin(paramsDense)
-specgalDense.solve(t=1.5)
+specgalDense.solve(1.5)
 
 # Our sparse method
 specgalSparse = sparselib.SpectralGalerkin(paramsSparse)
-specgalSparse.solve(t=1.5)
+specgalSparse.solve(1.5)
 
 # Evaluate results
 N = 1000
@@ -85,8 +85,8 @@ xs = np.expand_dims(xs, axis=1)
 # Compute the propagated uncertainty for our proposed sparse, half-density
 # method, a standard Galerkin approach, and the ground-truth distribution.
 interpDense = normalize(np.real(specgalDense.container.grids[0].eval(xs)), N)
-interpSparse = normalize(np.power(np.real(specgalDense.container.grids[0].eval(xs)), 2), N)
-gt = normalize(ground_truth(t=1.5, xs), N)
+interpSparse = normalize(np.power(np.real(specgalSparse.container.grids[0].eval(xs)), 2), N)
+gt = normalize(ground_truth(1.5, xs), N)
 
 
 plt.plot(xs, interpSparse)
@@ -94,6 +94,6 @@ plt.plot(xs, interpDense)
 plt.plot(xs, gt)
 plt.xlabel("Domain")
 plt.ylabel("Probability Density")
-plt.gca().legend(('Half-Densities','standard Galerkin', 'Ground Truth'))
+plt.gca().legend(('Half-Densities','Standard Galerkin', 'Ground Truth'))
 plt.ylim(np.minimum(0, np.min(interpDense)), np.maximum(1, np.max(interpDense)))
 plt.show()

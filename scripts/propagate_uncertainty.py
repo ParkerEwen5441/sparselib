@@ -29,6 +29,9 @@ def uniform_uncertainty(x):
     """
     return np.sqrt(np.ones_like(x[:,0]) * 1 / (2 * np.pi))
 
+def normalize(ys, N):
+    return np.squeeze(ys / (2 * np.pi * np.sum(ys) / N))
+
 class SolverParams():
 	max_level: int = 6
 	dim: int = 1
@@ -41,14 +44,15 @@ specgal = sparselib.SpectralGalerkin(params)
 specgal.solve(t=1.5)
 
 # Plot the propagated uncertainty
-xs = np.linspace(params.domain[0], params.domain[1], 1000)
+N = 1000
+xs = np.linspace(params.domain[0], params.domain[1], N)
 xs = np.expand_dims(xs, axis=1)
 
 # Grids[0] for uncertainty, grids[1] for vector field
 interp = np.real(specgal.container.grids[0].eval(xs))
 
 # Square the half-density if plotting uncertainty
-interp = np.power(interp, 2)
+interp = normalize(np.power(interp, 2), N)
 plt.ylim(np.minimum(0, np.min(interp)), np.maximum(1, np.max(interp)))
 
 plt.plot(xs, interp)

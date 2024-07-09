@@ -172,7 +172,7 @@ class SparseGrid:
             val *= 1j * k[d] * np.exp(1j * k[d] * x[:,d])
         return val
         
-    def marginalize(self, dims, prob=False):
+    def marginalize(self, x, dims, prob=False):
         """
         Compute marginal distribution of dims, integrating out
         additional dimensions from total probability density function.
@@ -202,7 +202,7 @@ class SparseGrid:
             else:
                 interp += np.real(self.eval(extended_coordinates))
 
-        interp /= spgrid1D.sparseGrid.shape[0]
+        interp /= (2 * np.pi * spgrid1D.sparseGrid.shape[0])
 
         xq, yq = np.meshgrid(np.arange(self.domain[0], self.domain[1], 0.01),
                              np.arange(self.domain[0], self.domain[1], 0.01))
