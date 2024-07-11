@@ -1,13 +1,14 @@
 import itertools
 import numpy as np
-from matplotlib import cm
 import matplotlib.pyplot as plt
 
+from tqdm import tqdm
+from matplotlib import cm
 from scipy.interpolate import griddata
 
 
 class SparseGrid:
-    def __init__(self, domain, max_level, dim):
+    def __init__(self, domain, max_level, dim, logging=False):
         """
         Sparse grid class using a Fourier basis defined with a hyperbolic
         cross.
@@ -28,6 +29,8 @@ class SparseGrid:
         self.hyperCross = []            # Hyperbolic Cross
         self.sparseGrid = []            # Corresponding Sparse Grid
 
+        self.logging = logging
+
     def build(self):
         """
         Builds a hyperbolic cross defined in [1]. First builds the hyperbolic
@@ -38,45 +41,8 @@ class SparseGrid:
             CROSS FAST FOURIER TRANSFORM", 2010.
         """
 
-        # Compute translation and scaling
-        translation = self.domain[0]
-        scaling = self.domain[1] - self.domain[0]
-
-        # Define constants
-        n = 2**(self.max_level-1)
-
-        # Build full tensor grid levels
-        nLevel = [np.linspace(0, n, n+1) for _ in range(self.dim)]
-        fullCross = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
-
-        # Choose subset of grid levels satisfying sparsity condition
-        k_mix = np.prod(np.maximum(fullCross + 1, np.ones_like(fullCross)), axis=1)
-
-        # Compute hypercross of Fourier frequencies
-        self.hyperCross = self.generate_combinations((fullCross[k_mix <= np.max(n)]))
-        self.hyperCross = np.unique(self.hyperCross, axis=0)
-
-        self.N = self.hyperCross.shape[0]
-
-        # Builds the corresponding sparse grid for interpolation over hypercross
-        nLevel = [np.linspace(0, self.max_level, self.max_level+1) for _ in range(self.dim)]
-        fullGridLevels = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
-        level_sums = np.sum(fullGridLevels, axis=1)
-        sparseGridLevels = (fullGridLevels[level_sums <= np.max(self.max_level)])
-        sparseGridLevels = sparseGridLevels[np.argsort(sparseGridLevels.sum(axis=1)),:]
-
-        # Initialize sparse interpolation grid
-        pts = np.zeros((1, self.dim))
-        grid = [{'level': np.asarray(level)} for level in sparseGridLevels]
-        for level in grid:
-            h = scaling * 2**(-level['level'])
-            idxs = [np.arange(2**(level['level'][d])) for d in range(self.dim)]
-            idxs = list(itertools.product(*idxs))
-
-            pt = np.asarray(np.asarray(idxs) * np.asarray(h) + translation)
-            pts = np.vstack((pts, pt))
-
-        self.sparseGrid = np.unique(pts[1:, :], axis=0)
+        self.__buildHyperCross()
+        self.__buildSparseGrid(fullGrid=False)
 
     def fit(self, f):
         """
@@ -93,19 +59,19 @@ class SparseGrid:
 
         A = np.zeros(shape=(N, M), dtype=np.complex128)
 
+        if self.logging:
+            pbar = tqdm(total=M)
+
         for idx, k in enumerate(self.hyperCross):
-            A[:, idx] = self.basis(self.sparseGrid, k)
+            A[:, idx] = self.__basis(self.sparseGrid, k)
+
+            if self.logging:
+                pbar.update(1)
+
+        if self.logging:
+            pbar.close()
 
         self.weights = np.matmul(np.linalg.pinv(A), f(self.sparseGrid))
-
-    def generate_combinations(self, pairs):
-        results = []
-        for pair in pairs:
-            # Create all combinations of negative and positive values for the current pair
-            signs = list(itertools.product((1, -1), repeat=len(pair)))
-            combinations = [tuple(s * x for s, x in zip(sign, pair)) for sign in signs]
-            results.extend(combinations)
-        return results
 
     def eval(self, x):
         """
@@ -124,11 +90,81 @@ class SparseGrid:
 
         A = np.zeros(shape=(N, M), dtype=np.complex128)
         for idx, k in enumerate(self.hyperCross):
-            A[:, idx] = self.basis(x, k)
+            A[:, idx] = self.__basis(x, k)
 
         return np.matmul(A, self.weights)
 
-    def basis(self, x, k):
+    def __buildHyperCross(self):
+        """
+        Builds a hyperbolic cross defined in [1].
+
+        [1] MICHAEL DOHLER, STEFAN KUNIS, AND DANIEL POTTS, "NONEQUISPACED HYPERBOLIC 
+            CROSS FAST FOURIER TRANSFORM", 2010.
+        """
+
+        # Define constants
+        n = 2**(self.max_level-1)
+
+        # Build full tensor grid levels
+        nLevel = [np.linspace(0, n, n+1) for _ in range(self.dim)]
+        fullCross = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
+
+        # Choose subset of grid levels satisfying sparsity condition
+        k_mix = np.prod(np.maximum(fullCross + 1, np.ones_like(fullCross)), axis=1)
+
+        # Compute hypercross of Fourier frequencies
+        self.hyperCross = self.__generate_combinations((fullCross[k_mix <= np.max(n)]))
+        self.hyperCross = np.unique(self.hyperCross, axis=0)
+
+        self.N = self.hyperCross.shape[0]
+
+    def __buildSparseGrid(self, fullGrid=False):
+        """
+        Builds the sparse grid (2.3) used for computing the weights of the Fourier 
+        basis functions defined in [1]. 
+
+        [1] MICHAEL DOHLER, STEFAN KUNIS, AND DANIEL POTTS, "NONEQUISPACED HYPERBOLIC 
+            CROSS FAST FOURIER TRANSFORM", 2010.
+        """
+
+        # Compute translation and scaling
+        translation = self.domain[0]
+        scaling = self.domain[1] - self.domain[0]
+
+        # Builds the corresponding sparse grid for interpolation over hypercross
+        nLevel = [np.linspace(0, self.max_level, self.max_level+1) for _ in range(self.dim)]
+        fullGridLevels = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
+        level_sums = np.sum(fullGridLevels, axis=1)
+
+        if fullGrid:
+            sparseGridLevels = fullGridLevels
+        else:
+            sparseGridLevels = (fullGridLevels[level_sums <= np.max(self.max_level)])
+
+        sparseGridLevels = sparseGridLevels[np.argsort(sparseGridLevels.sum(axis=1)),:]
+
+        # Initialize sparse interpolation grid
+        pts = np.zeros((1, self.dim))
+        for level in sparseGridLevels:
+            h = scaling * 2**(-np.asarray(level))
+            idxs = [np.arange(2**(np.asarray(level)[d])) for d in range(self.dim)]
+            idxs = list(itertools.product(*idxs))
+
+            pt = np.asarray(np.asarray(idxs) * np.asarray(h) + translation)
+            pts = np.vstack((pts, pt))
+
+        self.sparseGrid = np.unique(pts[1:, :], axis=0)
+
+    def __generate_combinations(self, pairs):
+        results = []
+        for pair in pairs:
+            # Create all combinations of negative and positive values for the current pair
+            signs = list(itertools.product((1, -1), repeat=len(pair)))
+            combinations = [tuple(s * x for s, x in zip(sign, pair)) for sign in signs]
+            results.extend(combinations)
+        return results
+    
+    def __basis(self, x, k):
         """
         Basis function for sparse grid function space.
         
@@ -150,68 +186,3 @@ class SparseGrid:
             val *= np.exp(1j * k[d] * x[:,d])
 
         return val
-
-    def basis_der(self, x, k):
-        """
-        Derivative of basis function for sparse grid function space.
-        
-        :param      x:    Evaluation points
-        :type       x:    (NxD) np.array
-
-
-        :returns:   Basis function derivative evaluation at x
-        :rtype:     float
-        """
-        if not isinstance(k, list) and not isinstance(k, np.ndarray):
-            k = [k]
-        if not isinstance(x, list) and not isinstance(x, np.ndarray):
-            x = np.array([[x]])
-
-        val = 1
-        for d in range(self.dim):
-            val *= 1j * k[d] * np.exp(1j * k[d] * x[:,d])
-        return val
-        
-    def marginalize(self, x, dims, prob=False):
-        """
-        Compute marginal distribution of dims, integrating out
-        additional dimensions from total probability density function.
-        
-        :param      dims:       The dimensions to compute marginals for
-        :type       dims:       list(int)
-        """
-        print("Marginalizing...")
-        if not len(dims) == 2:
-            print("Can only marginalize for 2 dimensions at the moment...")
-            return
-
-        # Initialize new 1D sparse grid
-        spgrid1D = SparseGrid(config.get_inner_product_domain())
-
-        M = 100
-        nLevel = [np.linspace(self.domain[0], self.domain[1], M),
-                  np.linspace(self.domain[0], self.domain[1], M)]
-        coordinates = np.array(np.meshgrid(*nLevel)).T.reshape(-1, 2)
-
-        interp = np.zeros((coordinates.shape[0],))
-        for val in spgrid1D.sparseGrid:
-            extended_coordinates = np.hstack((coordinates, val * np.ones((coordinates.shape[0],1))))
-
-            if prob:
-                interp += np.power(np.real(self.eval(extended_coordinates)), 2)
-            else:
-                interp += np.real(self.eval(extended_coordinates))
-
-        interp /= (2 * np.pi * spgrid1D.sparseGrid.shape[0])
-
-        xq, yq = np.meshgrid(np.arange(self.domain[0], self.domain[1], 0.01),
-                             np.arange(self.domain[0], self.domain[1], 0.01))
-
-        zq = griddata(coordinates[:,dims], interp, (xq, yq))
-        fig = plt.figure(figsize =(14, 14))
-        ax = plt.axes(projection ='3d')
-        surf = ax.plot_surface(xq, yq, zq, cmap=cm.inferno,
-                               linewidth=1, antialiased=True)
-        plt.show()
-
-        return 

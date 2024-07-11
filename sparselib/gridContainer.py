@@ -1,7 +1,7 @@
 from .spgrid import SparseGrid
 
 class GridContainer():
-	def __init__(self, params):
+	def __init__(self, params, logging=False):
 		"""
 		Constructs a container for the sparse grid classes.
 		Each element of the container contains a single SparseGrid
@@ -12,7 +12,8 @@ class GridContainer():
 		:type       params:  SolverParams struct
 		"""
 		# Sparse grids for uncertainty and vector fields
-		self.grids = [SparseGrid(params.domain, params.max_level, params.dim) 
+		self.grids = [SparseGrid(params.domain, params.max_level, 
+								 params.dim, logging=logging) 
 						for _ in range(params.dim + 1)]
 
 		# Build each sparse grid in container

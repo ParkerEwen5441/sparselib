@@ -25,7 +25,6 @@ def monte_carlo_sample(N):
 		pbar.update(1) 
 	pbar.close()
 
-
 	return prop_samples
 
 def func(x, t):
@@ -48,16 +47,17 @@ def plot_kernel_estimate(samples):
 	nLevel = [np.linspace(0, 2*np.pi, 100),np.linspace(0, 2*np.pi, 100)]
 	coordinates = np.array(np.meshgrid(*nLevel)).T.reshape(-1, 2)
 	z = kde(np.transpose(coordinates))
-	xq,yq = np.meshgrid(np.arange(0,2*np.pi,0.01),np.arange(0,2*np.pi,0.02))
+
+	dx = 2 * np.pi / 1024
+	xq,yq = np.meshgrid(np.arange(0,2*np.pi,dx),
+						np.arange(0,2*np.pi,dx))
 	zq = griddata(coordinates, z, (xq, yq), method='cubic')
 
-	fig = plt.figure(figsize =(14, 14))
-	ax = plt.axes()    
-	surf = ax.pcolormesh(xq, yq, zq, cmap=cm.plasma,
-								   linewidth=1, antialiased=True)
-	fig.colorbar(surf, shrink=0.5, aspect=5)
-	plt.xlim(0,2*np.pi)
-	plt.ylim(0,2*np.pi)
+	inferno = plt.get_cmap('inferno')
+	vals = inferno(zq)[:,:,:]
+	fig = plt.figure(frameon=False)
+	plt.axis('off')
+	plt.imshow(vals, interpolation='nearest')
 	plt.show()
 
 
