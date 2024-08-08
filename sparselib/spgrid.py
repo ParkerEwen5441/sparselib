@@ -42,7 +42,7 @@ class SparseGrid:
         """
 
         self.__buildHyperCross()
-        self.__buildSparseGrid(fullGrid=False)
+        self.__buildSparseGrid(fullGrid=True)
 
     def fit(self, f):
         """
