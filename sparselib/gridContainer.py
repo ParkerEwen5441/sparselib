@@ -12,9 +12,12 @@ class GridContainer():
 		:param      params:  The solver parameters
 		:type       params:  SolverParams struct
 		"""
+		if not hasattr(params, 'dense'):
+			params.dense = False
+			
 		# Initialize first empty grid object
 		grid = SparseGrid(params.domain, params.max_level, 
-								 params.dim, logging=logging)
+								 params.dim, params.dense, logging=logging)
 		grid.build()
 
 		# Deepcopy grid object to container

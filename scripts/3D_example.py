@@ -245,39 +245,38 @@ class SolverParamsSparse():
 
 
 class SolverParamsDense():
-    max_level: int = 5
+    max_level: int = 7
     dim: int = 3
     domain: np.ndarray = np.array([0, 2*np.pi])
     funcs: list = [gaussian_uncertainty_dense, dynamics1, dynamics2, dynamics3]
 
 
-global specgalSparse
-paramsSparse = SolverParamsSparse()
-specgalSparse = sparselib.SpectralGalerkin(paramsSparse, logging=True)
-specgalSparse.solve(t=1.5)
+# paramsSparse = SolverParamsSparse()
+# specgalSparse = sparselib.SpectralGalerkin(paramsSparse, logging=True)
+# specgalSparse.solve(t=1.5)
 
-# paramsDense = SolverParamsDense()
-# specgalDense = sparselib.SpectralGalerkin(paramsDense)
-# specgalDense.solve(t=1.5)
+paramsDense = SolverParamsDense()
+specgalDense = sparselib.SpectralGalerkin(paramsDense)
+specgalDense.solve(t=1.5)
 
-coordinates, valsSparse = marginalize(specgalSparse)
-# coordinates, valsDense = marginalize(specgalDense)
+# coordinates, valsSparse = marginalize(specgalSparse)
+coordinates, valsDense = marginalize(specgalDense)
 
 dx = 2 * np.pi / 1024
 xq, yq = np.meshgrid(np.arange(paramsSparse.domain[0], paramsSparse.domain[1], dx),
                      np.arange(paramsSparse.domain[0], paramsSparse.domain[1], dx))
 
-zqSparse = griddata(coordinates, valsSparse, (xq, yq), method='cubic')
-# zqDense = griddata(coordinates, valsDense, (xq, yq), method='cubic')
+# zqSparse = griddata(coordinates, valsSparse, (xq, yq), method='cubic')
+zqDense = griddata(coordinates, valsDense, (xq, yq), method='cubic')
 
 M = xq.shape[0]
-zqSparse /= np.sum(zqSparse * (2*np.pi/M)**2)
-# zqDense /= (2**2 * np.pi**2 * np.sum(zqDense) / (M * M))
+# zqSparse /= np.sum(zqSparse * (2*np.pi/M)**2)
+zqDense /= (2**2 * np.pi**2 * np.sum(zqDense) / (M * M))
 
 # # Plot spectral methods
-plot_torus(zqSparse, 'torusSparseGrid.png', "Sparse Grid Method")
-# plot_torus(zqDense, 'torusDenseGrid.png', "Standard Galerkin Method")
+# plot_torus(zqSparse, 'torusSparseGrid.png', "Sparse Grid Method")
+plot_torus(zqDense, 'torusDenseGrid.png', "Standard Galerkin Method")
 
 # Plot Monte Carllo method
-particles = monte_carlo_sample(N=5000)
-plot_torus(kernel_estimate(particles[:,:2]), 'torusMonteCarlo.png', "Monte Carlo Method")
+# particles = monte_carlo_sample(N=5000)
+# plot_torus(kernel_estimate(particles[:,:2]), 'torusMonteCarlo.png', "Monte Carlo Method")

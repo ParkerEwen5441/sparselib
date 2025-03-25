@@ -89,16 +89,38 @@ def gaussian_uncertainty_dense(x):
     return vals
 
 def plot_torus(zq, filename, title):
-    cm = plt.get_cmap('magma')
-    vals = cm(zq)[:,:,:]
+    cm_pos = plt.get_cmap('magma')
+    cm_neg = plt.get_cmap('viridis_r')
+
+    neg = np.ma.masked_array(zq, zq >= 0)
+    pos = np.ma.masked_array(zq, zq < 0)
+
     fig = plt.figure(frameon=False)
+    ax = fig.add_subplot()
     plt.axis('off')
-    plt.imshow(vals, interpolation='bicubic')
+    im1 = ax.imshow(pos, cmap='magma', interpolation='nearest')
+    im2 = ax.imshow(neg, cmap='viridis_r', interpolation='nearest')
+
+    # make bars 
+    # bar1 = plt.colorbar(im1) 
+    # bar2 = plt.colorbar(im2) 
+
     plt.savefig('prob.png', bbox_inches='tight', pad_inches=0)
+    # bar1.set_label('ColorBar 1') 
+    # bar2.set_label('ColorBar 2') 
+    # plt.show()
     plt.close(fig)
 
+    # vals = cm(zq)[:,:,:]
+    # fig = plt.figure(frameon=False)
+    # plt.axis('off')
+    # plt.imshow(vals, interpolation='bicubic')
+    # plt.savefig('prob.png', bbox_inches='tight', pad_inches=0)
+    # plt.close(fig)
+
     vmin = np.minimum(0, np.min(zq))
-    vmax = np.maximum(1, np.max(zq))
+    vmin = -0.5
+    vmax = np.maximum(5, np.max(zq))
 
     torus = s3d.CylindricalSurface(6).map_geom_from_op(torusFunc)
     torus.map_color_from_image('prob.png')
@@ -114,13 +136,17 @@ def plot_torus(zq, filename, title):
     ax.add_collection3d(torus)
 
     # Normalizer 
-    # norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax) 
+    norm_pos = matplotlib.colors.Normalize(vmin=0, vmax=2) 
+    norm_neg = matplotlib.colors.Normalize(vmin=-0.5, vmax=0) 
       
     # creating ScalarMappable 
-    # sm = plt.cm.ScalarMappable(cmap=cm, norm=norm) 
-    # sm.set_array([])
+    sm_pos = plt.cm.ScalarMappable(cmap=cm_pos, norm=norm_pos) 
+    sm_pos.set_array([])
+    sm_neg = plt.cm.ScalarMappable(cmap=cm_neg, norm=norm_neg) 
+    sm_neg.set_array([])
 
-    # plt.colorbar(sm) 
+    plt.colorbar(sm_pos)
+    plt.colorbar(sm_neg) 
     fig.tight_layout()
     plt.axis('off')
     # plt.title(title)
@@ -185,8 +211,8 @@ class SolverParamsDense():
 
 # global specgalSparse
 paramsSparse = SolverParamsSparse()
-specgalSparse = sparselib.SpectralGalerkin(paramsSparse, logging=True)
-specgalSparse.solve(t=1.5)
+# specgalSparse = sparselib.SpectralGalerkin(paramsSparse, logging=True)
+# specgalSparse.solve(t=1.5)
 
 paramsDense = SolverParamsDense()
 specgalDense = sparselib.SpectralGalerkin(paramsDense)
@@ -196,21 +222,21 @@ M = 100
 nLevel = [np.linspace(paramsSparse.domain[0], paramsSparse.domain[1], M),
           np.linspace(paramsSparse.domain[0], paramsSparse.domain[1], M)]
 coordinates = np.array(np.meshgrid(*nLevel)).T.reshape(-1, 2)
-interpSparse = np.power(np.real(specgalSparse.eval(coordinates, container_id=0)), 2)
+# interpSparse = np.power(np.real(specgalSparse.eval(coordinates, container_id=0)), 2)
 interpDense = np.real(specgalDense.eval(coordinates, container_id=0))
 
 dx = 2 * np.pi / 1024
 xq, yq = np.meshgrid(np.arange(paramsSparse.domain[0], paramsSparse.domain[1], dx),
                      np.arange(paramsSparse.domain[0], paramsSparse.domain[1], dx))
 
-zqSparse = griddata(coordinates, interpSparse, (xq, yq), method='cubic')
+# zqSparse = griddata(coordinates, interpSparse, (xq, yq), method='cubic')
 zqDense = griddata(coordinates, interpDense, (xq, yq), method='cubic')
 
 # Plot spectral methods
-plot_torus(zqSparse, 'torusSparseGrid.png', "Sparse Grid Method")
-input("WAIT")
+# plot_torus(zqSparse, 'torusSparseGrid.png', "Sparse Grid Method")
+# input("WAIT")
 plot_torus(zqDense, 'torusDenseGrid.png', "Standard Galerkin Method")
 
 # Plot Monte Carllo method
-particles = monte_carlo_sample(N=5000)
-plot_torus(kernel_estimate(particles), 'torusMonteCarlo.png', "Monte Carlo Method")
+# particles = monte_carlo_sample(N=5000)
+# plot_torus(kernel_estimate(particles), 'torusMonteCarlo.png', "Monte Carlo Method")

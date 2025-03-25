@@ -180,7 +180,7 @@ def Lp_Error_vs_num_bases():
 
 	t = 1.0
 
-	pbar = tqdm(total=12)
+	pbar = tqdm(total=11)
 	for i in range(1, 12):
 		# Initialize solver parameters
 		paramsDense = SolverParamsDense()
@@ -249,5 +249,5 @@ def Lp_Error_vs_num_bases():
 	plt.show()
 
 
-# Lp_error_vs_time()
+Lp_error_vs_time()
 Lp_Error_vs_num_bases()

@@ -8,7 +8,7 @@ from scipy.interpolate import griddata
 
 
 class SparseGrid:
-    def __init__(self, domain, max_level, dim, logging=False):
+    def __init__(self, domain, max_level, dim, dense=False, logging=False):
         """
         Sparse grid class using a Fourier basis defined with a hyperbolic
         cross.
@@ -24,6 +24,7 @@ class SparseGrid:
         self.dim = dim
         self.domain = domain
         self.max_level = max_level
+        self.dense = dense
 
         self.N = []                     # Number of basis functions
         self.invA = []                  # Matrix for fitting coeffs
@@ -43,7 +44,7 @@ class SparseGrid:
         """
 
         self.__buildHyperCross()
-        self.__buildSparseGrid(fullGrid=False)
+        self.__buildSparseGrid()
         self.__buildAMatrix()
 
     def fit(self, f):
@@ -111,7 +112,7 @@ class SparseGrid:
         self.hyperCross = np.unique(np.asarray(self.hyperCross), axis=0)
         self.N = self.hyperCross.shape[0]
 
-    def __buildSparseGrid(self, fullGrid=False):
+    def __buildSparseGrid(self):
         """
         Builds the sparse grid (2.3) used for computing the weights of the Fourier 
         basis functions defined in [1]. 
@@ -131,7 +132,7 @@ class SparseGrid:
         fullGridLevels = np.array(np.meshgrid(*nLevel)).T.reshape(-1, self.dim)
         level_sums = np.sum(fullGridLevels, axis=1)
 
-        if fullGrid:
+        if self.dense:
             sparseGridLevels = fullGridLevels
         else:
             sparseGridLevels = (fullGridLevels[level_sums <= np.max(sparseGridLevel)])
